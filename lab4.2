@@ -1,0 +1,75 @@
+﻿using System;
+using System.Collections.Generic;
+
+namespace PublisherSubscriberPattern
+{
+    // Клас події з пріоритетом
+    public class EventWithPriority : EventArgs
+    {
+        public string Message { get; set; }
+        public int Priority { get; set; }
+
+        public EventWithPriority(string message, int priority)
+        {
+            Message = message;
+            Priority = priority;
+        }
+    }
+
+    // Інтерфейс видавця
+    public interface IPublisher
+    {
+        void AddSubscriber(ISubscriber subscriber, int priority);
+        void RemoveSubscriber(ISubscriber subscriber);
+        void NotifySubscribers(EventWithPriority e);
+    }
+
+    // Інтерфейс підписника
+    public interface ISubscriber
+    {
+        void HandleEvent(object sender, EventWithPriority e);
+    }
+
+    // Клас видавця
+    public class Publisher : IPublisher
+    {
+        // Словник для зберігання підписників за пріоритетом
+        private Dictionary<int, List<ISubscriber>> subscribersByPriority = new Dictionary<int, List<ISubscriber>>();
+
+        // Додати підписника з певним пріоритетом
+        public void AddSubscriber(ISubscriber subscriber, int priority)
+        {
+            if (!subscribersByPriority.ContainsKey(priority))
+            {
+                subscribersByPriority[priority] = new List<ISubscriber>();
+            }
+
+            subscribersByPriority[priority].Add(subscriber);
+        }
+
+        // Видалити підписника
+        public void RemoveSubscriber(ISubscriber subscriber)
+        {
+            foreach (var subscribersList in subscribersByPriority.Values)
+            {
+                subscribersList.Remove(subscriber);
+            }
+        }
+
+        // Надіслати подію підписникам з певним пріоритетом
+        public void NotifySubscribers(EventWithPriority e)
+        {
+            foreach (var priority in subscribersByPriority.Keys)
+            {
+                if (priority <= e.Priority)
+                {
+                    foreach (var subscriber in subscribersByPriority[priority])
+                    {
+                        subscriber.HandleEvent(this, e);
+                    }
+                }
+            }
+        }
+    }
+}
+    //

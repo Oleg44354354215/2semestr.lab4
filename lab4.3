@@ -1,0 +1,258 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace ffe
+{
+    public class RetryPolicy
+    {
+        private readonly int _maxRetries;
+        private readonly TimeSpan _minDelay;
+        private readonly TimeSpan _maxDelay;
+        public static void RetryWithExponentialDelayAndRandomization(
+            Action action,
+            Func<int, TimeSpan> delayFunc,
+            int maxAttempts = 5,
+            TimeSpan? maxDelay = null)
+        {
+            int attempt = 0;
+            TimeSpan delay = TimeSpan.Zero;
+            Random random = new Random();
+
+            while (attempt < maxAttempts)
+            {
+                try
+                {
+                    action();
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    attempt++;
+
+                    if (attempt >= maxAttempts)
+                    {
+                        throw new Exception($"Failed after {attempt} attempts", ex);
+                    }
+
+                    delay = delayFunc(attempt);
+                    delay = TimeSpan.FromMilliseconds(delay.TotalMilliseconds + random.Next(0, (int)delay.TotalMilliseconds / 2));
+
+                    if (maxDelay != null && delay > maxDelay.Value)
+                    {
+                        delay = maxDelay.Value;
+                    }
+
+                    Console.WriteLine($"Attempt {attempt} failed. Retrying in {delay.TotalSeconds} seconds.");
+                    Thread.Sleep(delay);
+                }
+            }
+        }
+        public void HandleEvent(object sender, EventArgs args)
+        {
+            Console.WriteLine("Event handler called");
+
+            RetryWithExponentialDelayAndRandomization(
+                () =>
+                {
+                    // Дія, яку необхідно виконати з повторними спробами
+                    Console.WriteLine("Action executed successfully");
+                }
+                );
+               {  attempt => TimeSpan.FromSeconds(Math.Pow(2, attempt));, // Експоненційна зат
+// Політика повторних спроб з рандомізацією
+public class RetryPolicyWithRandomization
+        {
+            private readonly int maxRetries;
+            private readonly TimeSpan initialDelay;
+            private readonly TimeSpan maxDelay;
+
+            private int currentRetry;
+            private TimeSpan currentDelay;
+
+            private readonly Random random = new Random();
+
+            public RetryPolicyWithRandomization(int maxRetries, TimeSpan initialDelay, TimeSpan maxDelay)
+            {
+                this.maxRetries = maxRetries;
+                this.initialDelay = initialDelay;
+                this.maxDelay = maxDelay;
+
+                this.currentRetry = 0;
+                this.currentDelay = initialDelay;
+            }
+
+            public async Task WaitAndRetryAsync(Func<Task> action)
+            {
+                while (currentRetry < maxRetries)
+                {
+                    try
+                    {
+                        await action();
+                        break;
+                    }
+                    catch
+                    {
+                        // Затримка перед наступною спробою
+                        await Task.Delay(currentDelay + TimeSpan.FromMilliseconds(random.Next(0, 100)));
+
+                        // Збільшення лічильника спроб
+                        currentRetry++;
+
+                        // Збільшення затримки для наступної спроби
+                        currentDelay = TimeSpan.FromSeconds(Math.Min(currentDelay.TotalSeconds * 2, maxDelay.TotalSeconds));
+                    }
+                }
+            }
+        }
+        // Обробник подій, який виконується з помилкою
+        void OnEvent(object sender, EventArgs e)
+        {
+            Console.WriteLine("Error occurred!");
+
+            // Спробуємо ще раз
+            retryPolicy.WaitAndRetryAsync(async () =>
+            {
+                await Task.Delay(1000);
+                Console.WriteLine("Retrying...");
+                throw new Exception("Error occurred again!");
+            }).Wait();
+        }
+
+        // Створення
+        private static readonly Random random = new Random();
+
+        private TimeSpan GetRandomDelay(int attempt, RetryPolicy policy)
+        {
+            int delay = (int)Math.Pow(2, attempt - 1) * policy.InitialDelayMilliseconds;
+            delay = Math.Min(delay, policy.MaxDelayMilliseconds);
+            int randomPercentage = random.Next(-policy.RandomizationPercentage, policy.RandomizationPercentage + 1);
+            double randomFactor = 1.0 + (randomPercentage / 100.0);
+            delay = (int)(delay * randomFactor);
+            return TimeSpan.FromMilliseconds(delay);
+        }
+        private static void HandleEvent(object sender, EventArgs args)
+        {
+            int attempt = 1;
+            while (true)
+            {
+                try
+                {
+                    Console.WriteLine($"Handling event on attempt {attempt}.");
+                    // handle event here
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error handling event on attempt {attempt}: {ex.Message}");
+                    if (attempt >= policy.MaxAttempts)
+                    {
+                        Console.WriteLine($"Max attempts ({policy.MaxAttempts}) reached. Giving up.");
+                        break;
+                    }
+                    TimeSpan delay = GetRandomDelay(attempt, policy);
+                    Console.WriteLine($"Delaying for {delay.TotalMilliseconds} ms before next attempt.");
+                    Thread.Sleep(delay);
+                    attempt++;
+                }
+            }
+        }
+foreach (var handler in handlers)
+{
+    try
+    {
+        handler(priority, data);
+    }
+    catch (Exception ex)
+    {
+        // обробка винятків - можна зробити логування помилки та інші дії
+        Console.WriteLine($"Handler {handler.Method.Name} failed with error: {ex.Message}");
+    }
+}
+public class Subscriber
+{
+    public Action<int, string> Handler { get; set; }
+    public Func<RetryPolicy> RetryPolicyProvider { get; set; }
+}
+
+public class RetryPolicy
+{
+    public int MaxRetries { get; set; }
+    public TimeSpan InitialDelay { get; set; }
+    public TimeSpan MaxDelay { get; set; }
+    public double DelayMultiplier { get; set; }
+}
+foreach (var subscriber in subscribers)
+{
+    var handler = subscriber.Handler;
+    var retryPolicy = subscriber.RetryPolicyProvider?.Invoke();
+    if (retryPolicy == null)
+    {
+        // якщо політику повторних спроб не вказано, виконуємо один раз
+        handler(priority, data);
+        continue;
+    }
+
+    int retries = 0;
+    var delay = retryPolicy.InitialDelay;
+    while (retries <= retryPolicy.MaxRetries)
+    {
+        try
+        {
+            handler(priority, data);
+            break; // якщо виконання пройшло успішно, виходимо з циклу повторних спроб
+        }
+        catch (Exception ex)
+        {
+            if (retries == retryPolicy.MaxRetries)
+            {
+                Console.WriteLine($"Handler {handler.Method.Name} failed after {retries} retries with error: {ex.Message}");
+                break;
+            }
+
+            Console.WriteLine($"Handler {handler.Method.Name} failed with error: {ex.Message}. Retrying in {delay.TotalMilliseconds} ms...");
+            retries++;
+            Task.Delay(delay).Wait();
+            delay = TimeSpan.FromMilliseconds(delay.TotalMilliseconds * retryPolicy.DelayMultiplier);
+            delay = TimeSpan
+class PrioritySubscriber1
+{
+    public void HandleEvent(object sender, EventArgs e)
+    {
+        Console.WriteLine("PrioritySubscriber1: Handling event with priority 1");
+        throw new Exception("Failed to handle event with priority 1");
+    }
+}
+
+class PrioritySubscriber2
+{
+    public void HandleEvent(object sender, EventArgs e)
+    {
+        Console.WriteLine("PrioritySubscriber2: Handling event with priority 2");
+    }
+}
+
+class PrioritySubscriber3
+{
+    public void HandleEvent(object sender, EventArgs e)
+    {
+        Console.WriteLine("PrioritySubscriber3: Handling event with priority 3");
+        throw new Exception("Failed to handle event with priority 3");
+    }
+}
+var eventBus = new EventBus();
+
+var subscriber1 = new PrioritySubscriber1();
+var subscriber2 = new PrioritySubscriber2();
+var subscriber3 = new PrioritySubscriber3();
+
+eventBus.Subscribe(subscriber1.HandleEvent, priority: 1);
+eventBus.Subscribe(subscriber2.HandleEvent, priority: 2);
+eventBus.Subscribe(subscriber3.HandleEvent, priority: 3);
+
+var eventArgs = new EventArgs();
+eventBus.Publish(eventArgs);
+
+Console.WriteLine("Event published. Waiting for handlers to finish...");

@@ -1,0 +1,155 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace ytjgfh
+{
+    public class WorkflowManager
+    {
+        private List<IWorkflowAction> _actions = new List<IWorkflowAction>();
+        private Dictionary<IWorkflowAction, List<IWorkflowAction>> _transitions = new Dictionary<IWorkflowAction, List<IWorkflowAction>>();
+        private IWorkflowAction _currentAction = null;
+
+        public event EventHandler<WorkflowEventArgs> WorkflowStarted;
+        public event EventHandler<WorkflowEventArgs> WorkflowCompleted;
+        public event EventHandler<WorkflowActionEventArgs> ActionStarted;
+        public event EventHandler<WorkflowActionEventArgs> ActionCompleted;
+
+        public void AddAction(IWorkflowAction action)
+        {
+            _actions.Add(action);
+        }
+
+        public void RemoveAction(IWorkflowAction action)
+        {
+            _actions.Remove(action);
+            _transitions.Remove(action);
+            foreach (var transition in _transitions)
+            {
+                transition.Value.Remove(action);
+            }
+        }
+
+        public void AddTransition(IWorkflowAction fromAction, IWorkflowAction toAction)
+        {
+            if (!_actions.Contains(fromAction) || !_actions.Contains(toAction))
+            {
+                throw new ArgumentException("One or more actions not found in workflow");
+            }
+
+            if (!_transitions.ContainsKey(fromAction))
+            {
+                _transitions.Add(fromAction, new List<IWorkflowAction>());
+            }
+
+            _transitions[fromAction].Add(toAction);
+        }
+
+        public void StartWorkflow()
+        {
+            if (_actions.Count == 0)
+            {
+                throw new InvalidOperationException("Workflow contains no actions");
+            }
+
+            _currentAction = _actions[0];
+            WorkflowStarted?.Invoke(this, new WorkflowEventArgs(_currentAction.Name));
+
+            while (_currentAction != null)
+            {
+                ActionStarted?.Invoke(this, new WorkflowActionEventArgs(_currentAction.Name));
+
+                try
+                {
+                    _currentAction.Execute();
+                    ActionCompleted?.Invoke(this, new WorkflowActionEventArgs(_currentAction.Name));
+
+                    if (_transitions.ContainsKey(_currentAction))
+                    {
+                        _currentAction = _transitions[_currentAction][0];
+                    }
+                    else
+                    {
+                        _currentAction = null;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    ActionCompleted?.Invoke(this, new WorkflowActionEventArgs(_currentAction.Name, ex));
+                    HandleError(ex);
+                    if (_currentAction.RetryCount > 0)
+                    {
+                        Thread.Sleep(_currentAction.RetryDelay);
+                        _currentAction.RetryCount--;
+                    }
+                    else
+                    {
+                        _currentAction = null;
+                    }
+                }
+            }
+
+            WorkflowCompleted?.Invoke(this, new WorkflowEventArgs(null));
+        }
+
+        public void StopWorkflow()
+        {
+            _currentAction = null;
+        }
+
+        private void HandleError(Exception ex)
+        {
+            // Log the error, notify administrators, etc.
+            Console.WriteLine("Error occurred: " + ex.Message);
+        }
+    }
+    public class WorkflowManager
+    {
+        private readonly Dictionary<string, List<Transition>> _transitions;
+        private State _currentState;
+
+        public WorkflowManager()
+        {
+            _transitions = new Dictionary<string, List<Transition>>();
+            _currentState = null;
+        }
+
+        public void AddTransition(string fromState, string toState, Func<bool> condition)
+        {
+            var transition = new Transition(toState, condition);
+            if (!_transitions.ContainsKey(fromState))
+            {
+                _transitions[fromState] = new List<Transition>();
+            }
+            _transitions[fromState].Add(transition);
+        }
+
+        public void Start(State initialState)
+        {
+            _currentState = initialState;
+            while (_currentState != null)
+            {
+                Console.WriteLine($"Current state: {_currentState.Name}");
+                foreach (var transition in _transitions[_currentState.Name])
+                {
+                    if (transition.Condition())
+                    {
+                        _currentState = new State(transition.ToState);
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    var manager = new WorkflowManager();
+
+    var stateA = new State("State A");
+    var stateB = new State("State B");
+    var stateC = new State("State C");
+
+    manager.AddTransition(stateA.Name, stateB.Name, () => true);
+manager.AddTransition(stateB.Name, stateC.Name, () => true);
+
+manager.Start(stateA);

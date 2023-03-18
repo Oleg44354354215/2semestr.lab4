@@ -1,0 +1,112 @@
+﻿using System;
+using System.Threading;
+
+namespace CustomEventBusExample
+{
+    public class CustomEventBus
+    {
+        // Максимальна кількість подій, яку дозволяємо надсилати за одиницю часу
+        private int maxEventsPerSecond;
+
+        // Кількість подій, надісланих за поточну секунду
+        private int eventsSentThisSecond;
+
+        // Таймер для скидання лічильника кількості подій кожну секунду
+        private Timer resetTimer;
+
+        // Делегат для обробки подій
+        public delegate void EventHandler(object sender, CustomEventArgs e);
+
+        // Подія, яку можна відправляти та на яку можна підписуватися
+        public event EventHandler CustomEvent;
+
+        public CustomEventBus(int maxEventsPerSecond)
+        {
+            this.maxEventsPerSecond = maxEventsPerSecond;
+
+            // Створюємо таймер, щоб кожну секунду скидати лічильник кількості подій
+            resetTimer = new Timer(ResetEventCount, null, 1000, 1000);
+        }
+
+        // Метод для надсилання події
+        public void SendEvent(object sender, CustomEventArgs e)
+        {
+            // Якщо досягнута максимальна кількість подій на секунду, не надсилаємо подію
+            if (eventsSentThisSecond >= maxEventsPerSecond)
+            {
+                Console.WriteLine("Event limit reached. Event not sent.");
+                return;
+            }
+
+            Console.WriteLine("Event sent: " + e.Message);
+
+            // Надсилаємо подію всім зареєстрованим обробникам
+            CustomEvent?.Invoke(sender, e);
+
+            // Збільшуємо лічильник кількості подій, надісланих за поточну секунду
+            Interlocked.Increment(ref eventsSentThisSecond);
+        }
+
+        // Метод для додавання обробника події
+        public void AddEventHandler(EventHandler handler)
+        {
+            CustomEvent += handler;
+        }
+
+        // Метод для видалення обробника події
+        public void RemoveEventHandler(EventHandler handler)
+        {
+            CustomEvent -= handler;
+        }
+
+        // Метод для скидання лічильника кількості подій кожну сек
+        private void ResetEventCount(object state)
+        {
+            Interlocked.Exchange(ref eventsSentThisSecond, 0);
+        }
+    }
+
+    // Клас для передачі додаткових даних в події
+    public class CustomEventArgs : EventArgs
+    {
+        public string Message { get; set; }
+
+        public CustomEventArgs(string message)
+        {
+            Message = message;
+        }
+    }
+
+    // Приклад використання
+    class Program
+    {
+        static void Main(string[] args)
+        {
+            // Створюємо шину подій з обмеженням 2 події на секунду
+            var eventBus = new CustomEventBus(2);
+
+            // Додаємо обробник події
+            eventBus.AddEventHandler(OnCustomEvent);
+
+            // Надсилаємо події з інтервалом 500 мс
+            for (int i = 0; i < 5; i++)
+            {
+                eventBus.SendEvent(null, new CustomEventArgs($"Event {i}"));
+                Thread.Sleep(500);
+            }
+
+            // Видаляємо обробник події
+            eventBus.RemoveEventHandler(OnCustomEvent);
+
+            // Надсилаємо ще одну подію
+            eventBus.SendEvent(null, new CustomEventArgs("Event after removing handler"));
+
+            Console.ReadKey();
+        }
+
+        static void OnCustomEvent(object sender, CustomEventArgs e)
+        {
+            Console.WriteLine("Event received: " + e.Message);
+        }
+    }
+}
